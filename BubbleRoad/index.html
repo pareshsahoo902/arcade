@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Bubble Road</title>
+    <style>
+        :root {
+            --sky-top: #a1c4fd;
+            --sky-bottom: #c2e9fb;
+            --road-color: #e2e2e2;
+            --grass-color: #a8e063;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: var(--sky-top);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            user-select: none;
+            touch-action: none;
+        }
+        canvas {
+            display: block;
+        }
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .hud-top {
+            background: rgba(255, 255, 255, 0.7);
+            padding: 15px 30px;
+            border-radius: 50px;
+            font-size: 24px;
+            font-weight: bold;
+            color: #555;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            pointer-events: auto;
+            transition: transform 0.3s ease;
+        }
+        .hud-bottom {
+            font-size: 40px;
+            pointer-events: auto;
+        }
+        #menu-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(161, 196, 253, 0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            cursor: pointer;
+        }
+        .start-btn {
+            background: #fff;
+            padding: 20px 50px;
+            border-radius: 50px;
+            font-size: 32px;
+            font-weight: bold;
+            color: #4facfe;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            transition: transform 0.2s;
+            border: none;
+            cursor: pointer;
+        }
+        .start-btn:active {
+            transform: scale(0.95);
+        }
+        .hidden {
+            display: none !important;
+        }
+        #reward-display {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            font-size: 100px;
+            z-index: 50;
+            pointer-events: none;
+        }
+        .animate-reward {
+            animation: pop-in 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+        @keyframes pop-in {
+            0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+            50% { transform: translate(-50%, -50%) scale(1.5); opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+
+<canvas id="gameCanvas"></canvas>
+
+<div id="ui-layer">
+    <!-- UI elements minimized as per "Avoid DOM usage" -->
+</div>
+
+<div id="menu-overlay">
+    <h1 style="color: white; font-size: 60px; margin-bottom: 20px; text-shadow: 2px 2px 10px rgba(0,0,0,0.1); text-align: center;">Bubble Road</h1>
+    <button class="start-btn" onclick="startGame()">START</button>
+</div>
+
+<script>
+/**
+ * BUBBLE ROAD - A 2.5D Children's Game
+ */
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const menuOverlay = document.getElementById('menu-overlay');
+
+// Game State
+const STATE = {
+    MENU: 'MENU',
+    PLAYING: 'PLAYING',
+    REWARD: 'REWARD'
+};
+
+const MODE = {
+    FREE_PLAY: 'FREE_PLAY',
+    COUNTING: 'COUNTING',
+    FILTER: 'FILTER'
+};
+
+let gameState = STATE.MENU;
+let gameMode = MODE.FREE_PLAY;
+let score = 0;
+let stars = 0;
+let bubbles = [];
+let particles = [];
+let maxBubbles = 8;
+let frameCount = 0;
+let timeScale = 1.0;
+let combo = 0;
+let comboTimer = 0;
+
+// Mode specific
+let targetCount = 0;
+let currentCount = 0;
+let targetColor = null;
+let targetColorHex = null;
+let targetIconType = null;
+
+// HUD State
+let hudOpacity = 0;
+let rewardStarScale = 0;
+let shakeOffset = 0;
+
+// Audio Context
+let audioCtx = null;
+let ambientOsc = null;
+
+// Speech
+const synth = window.speechSynthesis;
+function speak(text) {
+    if (synth.speaking) synth.cancel();
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.pitch = 1.2;
+    utter.rate = 0.9;
+    synth.speak(utter);
+}
+
+// Sound Effects
+function playPopSound() {
+    if (!audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(400 + Math.random() * 200, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.1);
+    gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.1);
+}
+
+function playRewardSound() {
+    if (!audioCtx) return;
+    const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+    notes.forEach((freq, i) => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime + i * 0.1);
+        gain.gain.setValueAtTime(0.2, audioCtx.currentTime + i * 0.1);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + i * 0.1 + 0.3);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(audioCtx.currentTime + i * 0.1);
+        osc.stop(audioCtx.currentTime + i * 0.1 + 0.3);
+    });
+}
+
+function startAmbientSound() {
+    if (!audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(200, audioCtx.currentTime);
+
+    // LFO for "wavering" effect
+    const lfo = audioCtx.createOscillator();
+    const lfoGain = audioCtx.createGain();
+    lfo.frequency.value = 0.5;
+    lfoGain.gain.value = 10;
+    lfo.connect(lfoGain);
+    lfoGain.connect(osc.frequency);
+
+    gain.gain.value = 0.05;
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    osc.start();
+    lfo.start();
+}
+
+// Colors & Icons
+const COLORS = [
+    { name: 'red', hex: '#ff6b6b', light: '#ff8787' },
+    { name: 'blue', hex: '#4dabf7', light: '#74c0fc' },
+    { name: 'green', hex: '#69db7c', light: '#8ce99a' },
+    { name: 'yellow', hex: '#fcc419', light: '#ffd43b' },
+    { name: 'purple', hex: '#b197fc', light: '#d0bfff' }
+];
+
+const ICONS = ['star', 'heart', 'circle', 'square', 'triangle'];
+
+// Resize
+function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+// Bubble Class
+class Bubble {
+    constructor() {
+        this.init();
+    }
+
+    init() {
+        // 2.5D Logic: Spawn near horizon
+        const horizon = canvas.height * 0.5;
+        this.x = canvas.width * (0.3 + Math.random() * 0.4);
+        this.y = horizon;
+        this.z = 0; // 0 is far, 1 is near
+        this.speedZ = 0.002 + Math.random() * 0.003;
+        this.drift = (Math.random() - 0.5) * 2;
+
+        const colorObj = COLORS[Math.floor(Math.random() * COLORS.length)];
+        this.color = colorObj.hex;
+        this.colorName = colorObj.name;
+        this.lightColor = colorObj.light;
+        this.iconType = ICONS[Math.floor(Math.random() * ICONS.length)];
+
+        this.popping = false;
+        this.popTimer = 0;
+        this.popped = false;
+        this.radius = 0;
+        this.maxRadius = 60 + Math.random() * 20;
+        this.scale = 0;
+        this.opacity = 0;
+    }
+
+    update() {
+        if (this.popping) {
+            this.popTimer += 0.1 * timeScale;
+            this.scale *= 1.1; // Rapidly expand
+            if (this.popTimer >= 1) {
+                this.init();
+            }
+            return;
+        }
+
+        this.z += this.speedZ * timeScale;
+
+        const horizon = canvas.height * 0.5;
+        this.y = horizon - (this.z * canvas.height * 0.6);
+        this.scale = this.z * 2;
+        this.radius = this.maxRadius * this.scale;
+        this.opacity = Math.min(1, this.z * 5);
+
+        this.x += this.drift * this.scale * timeScale;
+
+        if (this.y + this.radius < -100 || this.z > 1.5) {
+            this.init();
+        }
+    }
+
+    draw() {
+        if (this.z <= 0) return;
+
+        ctx.save();
+        let currentOpacity = this.opacity * 0.7;
+        if (this.popping) currentOpacity *= (1 - this.popTimer);
+        ctx.globalAlpha = Math.max(0, currentOpacity);
+
+        // Bubble body
+        const gradient = ctx.createRadialGradient(
+            this.x - this.radius * 0.3,
+            this.y - this.radius * 0.3,
+            this.radius * 0.1,
+            this.x,
+            this.y,
+            this.radius
+        );
+        gradient.addColorStop(0, 'rgba(255, 255, 255, 0.8)');
+        gradient.addColorStop(0.2, this.lightColor);
+        gradient.addColorStop(1, this.color);
+
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fillStyle = gradient;
+
+        // Glow effect
+        ctx.shadowBlur = 15 * this.scale;
+        ctx.shadowColor = this.color;
+
+        ctx.fill();
+        ctx.shadowBlur = 0; // Reset for others
+
+        // Reflection highlight
+        ctx.beginPath();
+        ctx.ellipse(this.x - this.radius*0.4, this.y - this.radius*0.4, this.radius*0.2, this.radius*0.1, Math.PI/4, 0, Math.PI*2);
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
+        ctx.fill();
+
+        // Icon
+        ctx.globalAlpha = this.opacity * 0.8;
+        this.drawIcon();
+
+        ctx.restore();
+    }
+
+    drawIcon(customX, customY, customScale) {
+        const x = customX || this.x;
+        const y = customY || this.y;
+        const s = (customScale || this.radius) * 0.4;
+        const scaleFactor = customScale ? 1 : this.scale;
+
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 4 * scaleFactor;
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+
+        switch(this.iconType) {
+            case 'star':
+                for(let i=0; i<5; i++) {
+                    ctx.lineTo(x + s * Math.cos((18+i*72)*Math.PI/180), y + s * Math.sin((18+i*72)*Math.PI/180));
+                    ctx.lineTo(x + s/2 * Math.cos((54+i*72)*Math.PI/180), y + s/2 * Math.sin((54+i*72)*Math.PI/180));
+                }
+                ctx.closePath();
+                break;
+            case 'heart':
+                ctx.moveTo(x, y + s/2);
+                ctx.bezierCurveTo(x - s, y - s/2, x - s/2, y - s, x, y - s/2);
+                ctx.bezierCurveTo(x + s/2, y - s, x + s, y - s/2, x, y + s/2);
+                break;
+            case 'circle':
+                ctx.arc(x, y, s*0.8, 0, Math.PI*2);
+                break;
+            case 'square':
+                ctx.rect(x - s*0.7, y - s*0.7, s*1.4, s*1.4);
+                break;
+            case 'triangle':
+                ctx.moveTo(x, y - s);
+                ctx.lineTo(x - s, y + s);
+                ctx.lineTo(x + s, y + s);
+                ctx.closePath();
+                break;
+        }
+        ctx.stroke();
+    }
+
+    pop() {
+        if (this.popping) return;
+        this.popping = true;
+        this.popTimer = 0;
+        playPopSound();
+        createParticles(this.x, this.y, this.color);
+
+        // Slow motion effect
+        timeScale = 0.2;
+        setTimeout(() => timeScale = 1.0, 200);
+
+        // Handle logic
+        checkPopLogic(this);
+    }
+}
+
+// Particle System
+class Particle {
+    constructor(x, y, color) {
+        this.x = x;
+        this.y = y;
+        this.color = color;
+        this.vx = (Math.random() - 0.5) * 10;
+        this.vy = (Math.random() - 0.5) * 10;
+        this.radius = Math.random() * 5 + 2;
+        this.life = 1.0;
+        this.decay = 0.02 + Math.random() * 0.02;
+    }
+    update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.vy += 0.1; // gravity
+        this.life -= this.decay;
+    }
+    draw() {
+        ctx.save();
+        ctx.globalAlpha = this.life;
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+}
+
+function createParticles(x, y, color, isConfetti = false) {
+    const count = isConfetti ? 40 : 15;
+    for (let i = 0; i < count; i++) {
+        const p = new Particle(x, y, color);
+        if (isConfetti) {
+            p.vx *= 2;
+            p.vy *= 2;
+            p.radius = Math.random() * 8 + 4;
+            p.decay = 0.01;
+        }
+        particles.push(p);
+    }
+}
+
+// Environment Drawing
+function drawBackground() {
+    const horizon = canvas.height * 0.5;
+
+    // Sky
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, horizon);
+    skyGrad.addColorStop(0, '#a1c4fd');
+    skyGrad.addColorStop(1, '#c2e9fb');
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, canvas.width, horizon);
+
+    // Grass (Gradient for depth)
+    const grassGrad = ctx.createLinearGradient(0, horizon, 0, canvas.height);
+    grassGrad.addColorStop(0, '#a8e063');
+    grassGrad.addColorStop(1, '#56ab2f');
+    ctx.fillStyle = grassGrad;
+    ctx.fillRect(0, horizon, canvas.width, canvas.height - horizon);
+
+    // Road (Perspective)
+    ctx.fillStyle = '#e2e2e2';
+    ctx.beginPath();
+    ctx.moveTo(canvas.width * 0.45, horizon);
+    ctx.lineTo(canvas.width * 0.55, horizon);
+    ctx.lineTo(canvas.width * 0.8, canvas.height);
+    ctx.lineTo(canvas.width * 0.2, canvas.height);
+    ctx.fill();
+
+    // Road Lines
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+    ctx.setLineDash([20, 20]);
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.moveTo(canvas.width * 0.5, horizon);
+    ctx.lineTo(canvas.width * 0.5, canvas.height);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Flowers in the grass (Simple dots)
+    for(let i=0; i<15; i++) {
+        const fx = (Math.sin(i * 123.45) * 0.5 + 0.5) * canvas.width;
+        const fy = horizon + (Math.cos(i * 678.9) * 0.5 + 0.5) * (canvas.height - horizon);
+        // Don't draw on road
+        const roadWAtY = (fy - horizon) / (canvas.height - horizon) * (canvas.width * 0.6) + (canvas.width * 0.1);
+        if (Math.abs(fx - canvas.width/2) > roadWAtY/2) {
+            ctx.fillStyle = i % 2 === 0 ? '#ff8787' : 'white';
+            ctx.beginPath();
+            ctx.arc(fx, fy, 3, 0, Math.PI*2);
+            ctx.fill();
+        }
+    }
+
+    // Clouds (Simple parallax)
+    ctx.fillStyle = 'rgba(255,255,255,0.8)';
+    for(let i=0; i<3; i++) {
+        const cx = ((frameCount * (0.5 + i*0.2)) % (canvas.width + 200)) - 100;
+        const cy = 50 + i * 40;
+        drawCloud(cx, cy, 30 + i*10);
+    }
+}
+
+function drawCloud(x, y, size) {
+    ctx.beginPath();
+    ctx.arc(x, y, size, 0, Math.PI * 2);
+    ctx.arc(x + size*0.6, y - size*0.3, size*0.8, 0, Math.PI * 2);
+    ctx.arc(x + size*1.2, y, size*0.7, 0, Math.PI * 2);
+    ctx.fill();
+}
+
+// Game Logic
+function initBubbles() {
+    bubbles = [];
+    for (let i = 0; i < maxBubbles; i++) {
+        setTimeout(() => {
+            if (bubbles.length < maxBubbles) bubbles.push(new Bubble());
+        }, i * 500);
+    }
+}
+
+function checkPopLogic(bubble) {
+    if (gameState !== STATE.PLAYING) return;
+
+    let correct = false;
+
+    if (gameMode === MODE.FREE_PLAY) {
+        correct = true;
+    } else if (gameMode === MODE.COUNTING) {
+        currentCount++;
+        correct = true;
+        if (currentCount >= targetCount) {
+            setTimeout(completeMode, 500);
+        }
+    } else if (gameMode === MODE.FILTER) {
+        if (targetColor) {
+            if (bubble.colorName === targetColor) {
+                correct = true;
+                setTimeout(completeMode, 500);
+            } else {
+                gentleShake();
+            }
+        } else if (targetIconType) {
+            if (bubble.iconType === targetIconType) {
+                correct = true;
+                setTimeout(completeMode, 500);
+            } else {
+                gentleShake();
+            }
+        }
+    }
+
+    if (correct) {
+        // Combo logic
+        if (comboTimer > 0) {
+            combo++;
+        } else {
+            combo = 1;
+        }
+        comboTimer = 120; // 2 seconds at 60fps
+
+        showStarReward();
+    }
+}
+
+function showStarReward() {
+    stars++;
+    rewardStarScale = 1.5;
+    playRewardSound();
+    if (combo > 2) {
+        createParticles(canvas.width/2, canvas.height/2, '#FFD700', true);
+    }
+}
+
+function gentleShake() {
+    shakeOffset = 10;
+}
+
+function completeMode() {
+    gameState = STATE.REWARD;
+    speak("Great job!");
+    setTimeout(() => {
+        nextMode();
+    }, 2000);
+}
+
+function nextMode() {
+    const modes = [MODE.FREE_PLAY, MODE.COUNTING, MODE.FILTER];
+    const currentIndex = modes.indexOf(gameMode);
+    gameMode = modes[(currentIndex + 1) % modes.length];
+
+    setupMode();
+    gameState = STATE.PLAYING;
+}
+
+function setupMode() {
+    hudOpacity = 0;
+    if (gameMode === MODE.FREE_PLAY) {
+        targetColor = null;
+        targetIconType = null;
+        speak("Pop any bubble!");
+    } else if (gameMode === MODE.COUNTING) {
+        targetCount = 3 + Math.floor(Math.random() * 3);
+        currentCount = 0;
+        speak(`Pop ${targetCount} bubbles!`);
+    } else if (gameMode === MODE.FILTER) {
+        const useColor = Math.random() > 0.5;
+        if (useColor) {
+            const c = COLORS[Math.floor(Math.random() * COLORS.length)];
+            targetColor = c.name;
+            targetColorHex = c.hex;
+            targetIconType = null;
+            speak(`Pop the ${c.name} bubble!`);
+        } else {
+            targetIconType = ICONS[Math.floor(Math.random() * ICONS.length)];
+            targetColor = null;
+            speak(`Pop the bubble with a ${targetIconType}!`);
+        }
+    }
+}
+
+function drawHUD() {
+    if (gameState === STATE.MENU) return;
+
+    // Combo timer
+    if (comboTimer > 0) comboTimer -= timeScale;
+    else combo = 0;
+
+    // Fade in HUD
+    if (hudOpacity < 1) hudOpacity += 0.05;
+
+    ctx.save();
+    ctx.globalAlpha = hudOpacity;
+
+    // Shake effect
+    if (shakeOffset !== 0) {
+        ctx.translate(shakeOffset, 0);
+        shakeOffset *= -0.8;
+        if (Math.abs(shakeOffset) < 0.5) shakeOffset = 0;
+    }
+
+    // Top Prompt Bar
+    const barW = Math.min(canvas.width * 0.9, 450);
+    const barH = 60;
+    const barX = canvas.width/2 - barW/2;
+    const barY = 20;
+
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+    ctx.beginPath();
+    if (ctx.roundRect) {
+        ctx.roundRect(barX, barY, barW, barH, 30);
+    } else {
+        ctx.rect(barX, barY, barW, barH);
+    }
+    ctx.fill();
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = 'rgba(0,0,0,0.1)';
+
+    ctx.fillStyle = '#555';
+    ctx.font = 'bold 24px Arial';
+    ctx.textAlign = 'center';
+    let text = "";
+    if (gameMode === MODE.FREE_PLAY) text = "Pop any bubble!";
+    if (gameMode === MODE.COUNTING) text = `Pop ${targetCount - currentCount} bubbles!`;
+    if (gameMode === MODE.FILTER) {
+        if (targetColor) text = `Pop the ${targetColor} bubble!`;
+        if (targetIconType) text = `Pop the ${targetIconType} bubble!`;
+    }
+    ctx.fillText(text, canvas.width/2, 58);
+
+    // Prompt Icon
+    if (gameMode === MODE.FILTER) {
+        if (targetColor) {
+            ctx.fillStyle = targetColorHex;
+            ctx.beginPath();
+            ctx.arc(barX + 40, barY + 30, 20, 0, Math.PI*2);
+            ctx.fill();
+        } else if (targetIconType) {
+            // Draw a small icon
+            ctx.save();
+            ctx.translate(barX + 40, barY + 30);
+            ctx.strokeStyle = '#555';
+            ctx.lineWidth = 3;
+            // Dummy bubble-like icon drawer
+            const dummy = new Bubble();
+            dummy.iconType = targetIconType;
+            dummy.drawIcon(0, 0, 40);
+            ctx.restore();
+        }
+    }
+
+    // Stars at bottom
+    ctx.font = '40px Arial';
+    ctx.textAlign = 'center';
+    let starsStr = '⭐'.repeat(Math.min(stars, 10)) + (stars > 10 ? ' +' + (stars-10) : '');
+    ctx.fillText(starsStr, canvas.width/2, canvas.height - 40);
+
+    // Combo Display
+    if (combo > 1) {
+        ctx.font = 'bold 30px Arial';
+        ctx.fillStyle = '#ff922b';
+        ctx.fillText(`Combo x${combo}!`, canvas.width/2, canvas.height - 90);
+    }
+
+    // Reward Star Animation
+    if (rewardStarScale > 0) {
+        ctx.font = `${100 * rewardStarScale}px Arial`;
+        ctx.globalAlpha = Math.min(1, rewardStarScale);
+        ctx.fillText('⭐', canvas.width/2, canvas.height/2);
+        rewardStarScale -= 0.02;
+    }
+
+    ctx.restore();
+}
+
+function startGame() {
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        startAmbientSound();
+    }
+    menuOverlay.classList.add('hidden');
+    gameState = STATE.PLAYING;
+    gameMode = MODE.FREE_PLAY;
+    stars = 0;
+    initBubbles();
+    setupMode();
+}
+
+// Input Handling
+function handleInput(e) {
+    if (gameState !== STATE.PLAYING) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.clientX || (e.touches && e.touches[0].clientX)) - rect.left;
+    const y = (e.clientY || (e.touches && e.touches[0].clientY)) - rect.top;
+
+    // Check collision with bubbles
+    // Check from newest to oldest (topmost) - but we sort them by Z in loop
+    // So we should check based on current visual order.
+    // Let's copy and sort for hit detection or just iterate backwards since they are sorted in loop.
+    const sortedBubbles = [...bubbles].sort((a, b) => b.z - a.z); // Front to back
+
+    for (let i = 0; i < sortedBubbles.length; i++) {
+        const b = sortedBubbles[i];
+        if (b.popping || b.z <= 0) continue;
+
+        const dist = Math.hypot(x - b.x, y - b.y);
+        if (dist < b.radius + 15) { // Extra generous hitbox
+            b.pop();
+            break; // Only pop one per tap
+        }
+    }
+}
+
+canvas.addEventListener('mousedown', handleInput);
+canvas.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    handleInput(e);
+}, { passive: false });
+
+// Game Loop
+function loop() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    drawBackground();
+
+    if (gameState === STATE.PLAYING || gameState === STATE.REWARD) {
+        // Sort bubbles by Z so further ones are drawn first
+        bubbles.sort((a, b) => a.z - b.z);
+
+        bubbles.forEach(b => {
+            b.update();
+            b.draw();
+        });
+
+        particles.forEach((p, i) => {
+            p.update();
+            p.draw();
+            if (p.life <= 0) particles.splice(i, 1);
+        });
+
+        drawHUD();
+    }
+
+    frameCount++;
+    requestAnimationFrame(loop);
+}
+
+loop();
+
+</script>
+</body>
+</html>
