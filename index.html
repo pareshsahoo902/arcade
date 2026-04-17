@@ -470,6 +470,7 @@
     // --- CANVAS LOGO DRAWING ---
     function drawAnimalLogo() {
         const canvas = document.getElementById('canvas-animal');
+        if(!canvas) return;
         const ctx = canvas.getContext('2d');
         const w = 400, h = 400;
 
@@ -527,6 +528,7 @@
 
     function drawToyLogo() {
         const canvas = document.getElementById('canvas-toy');
+        if(!canvas) return;
         const ctx = canvas.getContext('2d');
         const w = 400, h = 400;
 
@@ -571,6 +573,7 @@
 
     function drawBubbleLogo() {
         const canvas = document.getElementById('canvas-bubble');
+        if(!canvas) return;
         const ctx = canvas.getContext('2d');
         const w = 400, h = 400;
 
@@ -580,37 +583,23 @@
 
         function drawBubble(x, y, r, color) {
             ctx.save();
-            // Outer glow
             ctx.shadowBlur = 15;
             ctx.shadowColor = color;
-
             const grad = ctx.createRadialGradient(x-r*0.3, y-r*0.3, r*0.1, x, y, r);
             grad.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
             grad.addColorStop(0.4, color);
             grad.addColorStop(1, color);
-
             ctx.fillStyle = grad;
             ctx.globalAlpha = 0.6;
             ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill();
-
-            // Glossy Highlight
             ctx.globalAlpha = 0.8;
             ctx.fillStyle = 'white';
             ctx.beginPath();
             ctx.ellipse(x - r*0.35, y - r*0.35, r*0.25, r*0.15, Math.PI/4, 0, Math.PI*2);
             ctx.fill();
-
-            // Bottom reflection
-            ctx.beginPath();
-            ctx.ellipse(x + r*0.3, y + r*0.3, r*0.2, r*0.1, Math.PI/4, 0, Math.PI*2);
-            ctx.globalAlpha = 0.3;
-            ctx.fill();
-
             ctx.restore();
         }
-
-        // Perspective arrangement
-        drawBubble(w*0.5, h*0.5, 90, '#54a0ff'); // Main big bubble
+        drawBubble(w*0.5, h*0.5, 90, '#54a0ff');
         drawBubble(w*0.25, h*0.3, 50, '#ff8aab');
         drawBubble(w*0.75, h*0.35, 45, '#5f27cd');
         drawBubble(w*0.3, h*0.75, 40, '#78e08f');
