@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tiny Learners World</title>
+    <style>
+        :root {
+            --bg-color: #f0faff;
+            --card-bg: #ffffff;
+            --text-color: #444;
+            --accent-color: #ff8aab;
+            --animal-color: #ff9f43;
+            --toy-color: #4ecdc4;
+            --bubble-color: #54a0ff;
+            --font-main: 'Comic Sans MS', 'Chalkboard SE', 'Comic Neue', sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            font-family: var(--font-main);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            overflow-x: hidden;
+            background-image: radial-gradient(#fff 2px, transparent 2px);
+            background-size: 40px 40px;
+        }
+
+        header {
+            text-align: center;
+            padding: 40px 20px;
+            width: 100%;
+        }
+
+        h1 {
+            font-size: 3.5rem;
+            color: var(--accent-color);
+            margin: 0;
+            text-shadow: 3px 3px 0px #fff, 6px 6px 0px rgba(0,0,0,0.05);
+            font-weight: 900;
+        }
+
+        .subtitle {
+            font-size: 1.4rem;
+            color: #777;
+            margin-top: 10px;
+            background: white;
+            display: inline-block;
+            padding: 5px 20px;
+            border-radius: 50px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+        }
+
+        .arcade-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 40px;
+            padding: 20px;
+            max-width: 1200px;
+            width: 100%;
+            margin-bottom: 50px;
+        }
+
+        .game-card {
+            background: var(--card-bg);
+            border-radius: 40px;
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            text-decoration: none;
+            color: inherit;
+            box-shadow: 0 15px 0 rgba(0,0,0,0.05);
+            transition: transform 0.2s, box-shadow 0.2s;
+            border: 8px solid transparent;
+            position: relative;
+        }
+
+        .game-card:hover, .game-card:active {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 0 rgba(0,0,0,0.05);
+        }
+
+        .game-card.animal-parade { border-color: #ffe082; }
+        .game-card.toy-finder { border-color: #b2ebf2; }
+        .game-card.bubble-road { border-color: #d1c4e9; }
+
+        .logo-container {
+            width: 200px;
+            height: 200px;
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .logo-canvas {
+            width: 200px;
+            height: 200px;
+            border-radius: 40px;
+            background: #fff;
+        }
+
+        h2 {
+            margin: 10px 0;
+            font-size: 2rem;
+            color: #333;
+        }
+
+        .tagline {
+            font-weight: bold;
+            color: var(--accent-color);
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+        }
+
+        .description {
+            font-size: 1rem;
+            line-height: 1.5;
+            color: #666;
+            margin-bottom: 25px;
+            flex-grow: 1;
+        }
+
+        .play-btn {
+            padding: 15px 50px;
+            border-radius: 50px;
+            font-weight: bold;
+            font-size: 1.4rem;
+            color: white;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 6px 0 rgba(0,0,0,0.2);
+            transition: transform 0.1s;
+        }
+
+        .animal-parade .play-btn { background-color: var(--animal-color); }
+        .toy-finder .play-btn { background-color: var(--toy-color); }
+        .bubble-road .play-btn { background-color: var(--bubble-color); }
+
+        .game-card:active .play-btn {
+            transform: translateY(3px);
+            box-shadow: 0 3px 0 rgba(0,0,0,0.2);
+        }
+
+        footer {
+            padding: 40px;
+            color: #aaa;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 600px) {
+            h1 { font-size: 2.5rem; }
+            .arcade-container { grid-template-columns: 1fr; }
+            .game-card { margin: 0 10px; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Tiny Learners World</h1>
+    <p class="subtitle">A magical place to play and grow!</p>
+</header>
+
+<main class="arcade-container">
+    <a href="./AnimalParade/" class="game-card animal-parade">
+        <div class="logo-container">
+            <canvas class="logo-canvas" id="canvas-animal" width="400" height="400"></canvas>
+        </div>
+        <h2>Animal Parade</h2>
+        <div class="tagline">Tap, Learn, and March!</div>
+        <div class="description">Meet adorable animals and discover their sounds and colors in this joyful parade.</div>
+        <div class="play-btn">PLAY</div>
+    </a>
+
+    <a href="./toy-room-finder/" class="game-card toy-finder">
+        <div class="logo-container">
+            <canvas class="logo-canvas" id="canvas-toy" width="400" height="400"></canvas>
+        </div>
+        <h2>Toy Room Finder</h2>
+        <div class="tagline">Find, Tap, and Discover!</div>
+        <div class="description">Explore a playful room filled with colorful toys and find what’s hiding!</div>
+        <div class="play-btn">PLAY</div>
+    </a>
+
+    <a href="./BubbleRoad/" class="game-card bubble-road">
+        <div class="logo-container">
+            <canvas class="logo-canvas" id="canvas-bubble" width="400" height="400"></canvas>
+        </div>
+        <h2>Bubble Road</h2>
+        <div class="tagline">Pop, Count, and Float!</div>
+        <div class="description">Float along a magical road filled with colorful bubbles waiting to be popped!</div>
+        <div class="play-btn">PLAY</div>
+    </a>
+</main>
+
+<footer>
+    &copy; Tiny Learners World - Built with Love for Little Ones
+</footer>
+
+<script>
+    // --- AUDIO SYSTEM ---
+    let audioCtx = null;
+    let musicStarted = false;
+
+    function initAudio() {
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+    }
+
+    function playPop() {
+        try {
+            initAudio();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(200, audioCtx.currentTime + 0.1);
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.1);
+        } catch(e) {}
+    }
+
+    function startGentleMusic() {
+        if (musicStarted) return;
+        musicStarted = true;
+        initAudio();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+
+        const notes = [261.63, 329.63, 392.00, 440.00]; // C, E, G, A (Pentatonic)
+        let noteIndex = 0;
+
+        setInterval(() => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(notes[noteIndex], audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.02, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.5);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 1.5);
+            noteIndex = (noteIndex + 1) % notes.length;
+        }, 2000);
+    }
+
+    document.querySelectorAll('.game-card').forEach(card => {
+        card.addEventListener('click', (e) => {
+            playPop();
+            startGentleMusic();
+        });
+    });
+
+    window.addEventListener('touchstart', () => {
+        initAudio();
+        if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    }, { once: true });
+
+    // --- CANVAS LOGO DRAWING ---
+    function drawAnimalLogo() {
+        const canvas = document.getElementById('canvas-animal');
+        const ctx = canvas.getContext('2d');
+        const w = 400, h = 400;
+
+        // Background Circle
+        ctx.fillStyle = '#ff8aab';
+        ctx.beginPath(); ctx.arc(w/2, h/2, 180, 0, Math.PI*2); ctx.fill();
+
+        // Rainbow arcs
+        ctx.lineWidth = 20;
+        const colors = ['#FFD700', '#FF4500', '#54a0ff', '#78e08f'];
+        colors.forEach((c, i) => {
+            ctx.strokeStyle = c;
+            ctx.beginPath(); ctx.arc(w/2, h/2, 160 - i*25, 0, Math.PI*2); ctx.stroke();
+        });
+
+        // Small icons around
+        const icons = ["🐶", "🐱", "🦆"];
+        icons.forEach((icon, i) => {
+            ctx.font = "40px Arial";
+            const angle = (i * (Math.PI * 2) / 3) - Math.PI/2;
+            ctx.fillText(icon, w/2 + Math.cos(angle)*130 - 20, h/2 + Math.sin(angle)*130 + 15);
+        });
+
+        // Cow Face
+        ctx.save();
+        ctx.translate(w/2, h/2 + 10);
+        ctx.fillStyle = 'white';
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(-70, -60, 140, 110, 30); else ctx.rect(-70, -60, 140, 110);
+        ctx.fill();
+        ctx.strokeStyle = '#333'; ctx.lineWidth = 6; ctx.stroke();
+
+        // Spots
+        ctx.fillStyle = '#333';
+        ctx.beginPath(); ctx.arc(-40, -30, 20, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(35, 20, 15, 0, Math.PI*2); ctx.fill();
+
+        // Muzzle
+        ctx.fillStyle = '#ffc0cb';
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(-45, 10, 90, 40, 20); else ctx.rect(-45, 10, 90, 40);
+        ctx.fill();
+
+        // Nose
+        ctx.fillStyle = '#ff9aa2';
+        ctx.beginPath(); ctx.arc(-15, 25, 5, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(15, 25, 5, 0, Math.PI*2); ctx.fill();
+
+        // Eyes
+        ctx.fillStyle = 'black';
+        ctx.beginPath(); ctx.arc(-25, -10, 8, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(25, -10, 8, 0, Math.PI*2); ctx.fill();
+        ctx.restore();
+    }
+
+    function drawToyLogo() {
+        const canvas = document.getElementById('canvas-toy');
+        const ctx = canvas.getContext('2d');
+        const w = 400, h = 400;
+
+        // Background (Room Corner)
+        ctx.fillStyle = '#fff9db';
+        ctx.beginPath(); ctx.arc(w/2, h/2, 180, 0, Math.PI*2); ctx.fill();
+        ctx.strokeStyle = '#fab1a0'; ctx.lineWidth = 5;
+        ctx.beginPath(); ctx.moveTo(w/2, h/2 - 180); ctx.lineTo(w/2, h/2 + 180); ctx.stroke();
+
+        // Teddy
+        ctx.save();
+        ctx.translate(w/2 - 20, h/2 + 20);
+        ctx.fillStyle = '#8d6e63';
+        // Ears
+        ctx.beginPath(); ctx.arc(-50, -50, 25, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(50, -50, 25, 0, Math.PI*2); ctx.fill();
+        // Head
+        ctx.beginPath(); ctx.arc(0, 0, 75, 0, Math.PI*2); ctx.fill();
+        // Muzzle
+        ctx.fillStyle = '#d7ccc8';
+        ctx.beginPath(); ctx.arc(0, 20, 30, 0, Math.PI*2); ctx.fill();
+        // Eyes
+        ctx.fillStyle = 'black';
+        ctx.beginPath(); ctx.arc(-25, -10, 8, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(25, -10, 8, 0, Math.PI*2); ctx.fill();
+        ctx.restore();
+
+        // Ball
+        ctx.fillStyle = '#ff7675';
+        ctx.beginPath(); ctx.arc(w*0.75, h*0.75, 50, 0, Math.PI*2); ctx.fill();
+        ctx.strokeStyle = 'white'; ctx.lineWidth = 5;
+        ctx.beginPath(); ctx.arc(w*0.75, h*0.75, 50, -0.5, 0.5); ctx.stroke();
+
+        // Blocks
+        ctx.fillStyle = '#4ecdc4';
+        if (ctx.roundRect) ctx.roundRect(w*0.15, h*0.6, 60, 60, 10); else ctx.rect(w*0.15, h*0.6, 60, 60);
+        ctx.fill();
+        ctx.fillStyle = '#ff9f43';
+        if (ctx.roundRect) ctx.roundRect(w*0.2, h*0.5, 50, 50, 10); else ctx.rect(w*0.2, h*0.5, 50, 50);
+        ctx.fill();
+    }
+
+    function drawBubbleLogo() {
+        const canvas = document.getElementById('canvas-bubble');
+        const ctx = canvas.getContext('2d');
+        const w = 400, h = 400;
+
+        // Sky
+        ctx.fillStyle = '#e3f2fd';
+        ctx.beginPath(); ctx.arc(w/2, h/2, 180, 0, Math.PI*2); ctx.fill();
+
+        function drawBubble(x, y, r, color) {
+            ctx.save();
+            // Outer glow
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = color;
+
+            const grad = ctx.createRadialGradient(x-r*0.3, y-r*0.3, r*0.1, x, y, r);
+            grad.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
+            grad.addColorStop(0.4, color);
+            grad.addColorStop(1, color);
+
+            ctx.fillStyle = grad;
+            ctx.globalAlpha = 0.6;
+            ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill();
+
+            // Glossy Highlight
+            ctx.globalAlpha = 0.8;
+            ctx.fillStyle = 'white';
+            ctx.beginPath();
+            ctx.ellipse(x - r*0.35, y - r*0.35, r*0.25, r*0.15, Math.PI/4, 0, Math.PI*2);
+            ctx.fill();
+
+            // Bottom reflection
+            ctx.beginPath();
+            ctx.ellipse(x + r*0.3, y + r*0.3, r*0.2, r*0.1, Math.PI/4, 0, Math.PI*2);
+            ctx.globalAlpha = 0.3;
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        // Perspective arrangement
+        drawBubble(w*0.5, h*0.5, 90, '#54a0ff'); // Main big bubble
+        drawBubble(w*0.25, h*0.3, 50, '#ff8aab');
+        drawBubble(w*0.75, h*0.35, 45, '#5f27cd');
+        drawBubble(w*0.3, h*0.75, 40, '#78e08f');
+        drawBubble(w*0.8, h*0.7, 35, '#ff9f43');
+    }
+
+    drawAnimalLogo();
+    drawToyLogo();
+    drawBubbleLogo();
+</script>
+
+</body>
+</html>
