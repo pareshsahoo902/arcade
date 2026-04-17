@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Focus Quest</title>
+    <style>
+        :root {
+            --bg-color: #050510;
+            --player-color: #00E5FF;
+            --path-color: #00FFB2;
+            --goal-color: #FFD54F;
+            --distraction-color: #E040FB;
+            --danger-color: #FF5252;
+            --ui-font: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: var(--bg-color);
+            font-family: var(--ui-font);
+            color: white;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+        }
+
+        .hud-top {
+            display: none;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .focus-meter-container {
+            width: 200px;
+            height: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid rgba(0, 229, 255, 0.3);
+        }
+
+        #focus-bar {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, #00E5FF, #00B8D4);
+            transition: width 0.1s linear;
+        }
+
+        .stats {
+            text-align: right;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-size: 14px;
+            text-shadow: 0 0 10px rgba(0, 229, 255, 0.5);
+        }
+
+        #message-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            pointer-events: auto;
+            background: rgba(5, 5, 16, 0.8);
+            padding: 40px;
+            border-radius: 20px;
+            border: 1px solid rgba(0, 255, 178, 0.2);
+            backdrop-filter: blur(10px);
+            max-width: 90%;
+            width: 400px;
+        }
+
+        h1 {
+            font-size: 3rem;
+            margin: 0 0 10px 0;
+            background: linear-gradient(to bottom, #00E5FF, #00FFB2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+        }
+
+        .btn {
+            background: transparent;
+            border: 2px solid var(--path-color);
+            color: var(--path-color);
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            cursor: pointer;
+            margin-top: 30px;
+            transition: all 0.3s;
+            border-radius: 4px;
+        }
+
+        .btn:hover {
+            background: var(--path-color);
+            color: var(--bg-color);
+            box-shadow: 0 0 20px rgba(0, 255, 178, 0.4);
+        }
+
+        #result-screen {
+            display: none;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 10px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 5px;
+        }
+
+        .stat-value {
+            color: var(--player-color);
+            font-weight: bold;
+        }
+
+        @media (max-width: 600px) {
+            h1 { font-size: 2rem; }
+            #message-overlay { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="ui-layer">
+        <div class="hud-top">
+            <div class="focus-meter-container">
+                <div id="focus-bar"></div>
+            </div>
+            <div class="stats">
+                <div>Score: <span id="score-val">0</span></div>
+                <div>Streak: <span id="streak-val">0</span></div>
+            </div>
+        </div>
+
+        <div id="message-overlay">
+            <div id="menu-screen">
+                <h1>Focus Quest</h1>
+                <p>Stay focused. Avoid distractions.</p>
+                <p style="font-size: 0.9rem; color: #888; margin-top: 20px;">
+                    TAP to move • HOLD for Focus Mode
+                </p>
+                <button class="btn" onclick="startGame()">Start Quest</button>
+            </div>
+
+            <div id="result-screen">
+                <h1>Result</h1>
+                <div id="stats-container">
+                    <div class="stat-row"><span>Focus Score</span><span class="stat-value" id="res-focus">0</span></div>
+                    <div class="stat-row"><span>Reaction Time</span><span class="stat-value" id="res-reaction">0ms</span></div>
+                    <div class="stat-row"><span>Mistakes</span><span class="stat-value" id="res-mistakes">0</span></div>
+                    <div class="stat-row"><span>Max Streak</span><span class="stat-value" id="res-streak">0</span></div>
+                </div>
+                <button class="btn" onclick="startGame()">Try Again</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- CORE CONSTANTS & STATE ---
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const focusBar = document.getElementById('focus-bar');
+
+    // --- AUDIO SYSTEM ---
+    let audioCtx = null;
+    let mainOsc = null;
+    let mainGain = null;
+
+    function initAudio() {
+        if (audioCtx) return;
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        mainGain = audioCtx.createGain();
+        mainGain.gain.value = 0.1;
+        mainGain.connect(audioCtx.destination);
+
+        // Ambient background pad
+        const osc1 = audioCtx.createOscillator();
+        const osc2 = audioCtx.createOscillator();
+        const padGain = audioCtx.createGain();
+
+        osc1.type = 'sine';
+        osc2.type = 'sine';
+        osc1.frequency.value = 110; // A2
+        osc2.frequency.value = 164.81; // E3
+
+        padGain.gain.value = 0.05;
+
+        osc1.connect(padGain);
+        osc2.connect(padGain);
+        padGain.connect(mainGain);
+
+        osc1.start();
+        osc2.start();
+
+        // Subtle modulation
+        const lfo = audioCtx.createOscillator();
+        const lfoGain = audioCtx.createGain();
+        lfo.frequency.value = 0.5;
+        lfoGain.gain.value = 5;
+        lfo.connect(lfoGain);
+        lfoGain.connect(osc1.frequency);
+        lfo.start();
+    }
+
+    function playSound(freq, type = 'sine', duration = 0.1, volume = 0.1) {
+        if (!audioCtx) return;
+        const osc = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        g.gain.setValueAtTime(volume, audioCtx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+        osc.connect(g);
+        g.connect(mainGain);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+    }
+
+    const COLORS = {
+        bg: '#050510',
+        player: '#00E5FF',
+        path: '#00FFB2',
+        goal: '#FFD54F',
+        distraction: '#E040FB',
+        danger: '#FF5252'
+    };
+
+    let gameState = 'MENU'; // MENU, PLAYING, LEVEL_COMPLETE, RESULT
+    let width, height;
+    let lastTime = 0;
+    let transitionProgress = 0;
+
+    // Camera & Projection
+    const perspective = {
+        fov: 0.8,
+        far: 0, // top of screen
+        near: height, // bottom of screen
+        horizon: 0.2 // 20% from top
+    };
+
+    // Particles
+    class Particle {
+        constructor() {
+            this.reset();
+        }
+        reset() {
+            this.x = Math.random() * width;
+            this.y = Math.random() * height;
+            this.z = Math.random(); // Depth 0 to 1
+            this.vx = (Math.random() - 0.5) * 50;
+            this.vy = Math.random() * 20 + 10;
+            this.size = Math.random() * 3 + 1;
+            this.color = Math.random() > 0.5 ? COLORS.path : COLORS.distraction;
+            this.alpha = Math.random();
+        }
+        update(dt, speedMult = 1) {
+            this.y += this.vy * dt * speedMult;
+            if (this.y > height) {
+                this.y = -10;
+                this.x = Math.random() * width;
+            }
+        }
+        draw() {
+            const scale = 0.2 + (this.y / height) * 0.8;
+            ctx.globalAlpha = this.alpha * scale;
+            ctx.fillStyle = this.color;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size * scale, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+        }
+    }
+
+    const particles = Array.from({ length: 50 }, () => new Particle());
+
+    // Path System
+    class Node {
+        constructor(id, x, y, type = 'normal') {
+            this.id = id;
+            this.x = x; // -1 to 1
+            this.y = y; // 0 (far) to 1 (near)
+            this.type = type; // normal, goal, start, trap
+            this.links = [];
+        }
+    }
+
+    let nodes = [];
+    let currentLevel = 1;
+
+    // Player State
+    const player = {
+        x: 0,
+        y: 1,
+        targetX: 0,
+        targetY: 1,
+        currentNode: null,
+        targetNode: null,
+        moveProgress: 0,
+        speed: 2.5,
+        focusMeter: 100,
+        isFocusing: false,
+        streak: 0,
+        score: 0,
+        mistakes: 0,
+        totalTime: 0,
+        moves: 0
+    };
+
+    // Distractions
+    class Distraction {
+        constructor() {
+            this.reset();
+        }
+        reset() {
+            this.y = Math.random();
+            this.x = Math.random() > 0.5 ? -1.5 : 1.5;
+            this.targetX = this.x > 0 ? -1.5 : 1.5;
+            this.speed = 0.5 + Math.random() * 1.0;
+            this.size = 0.1 + Math.random() * 0.2;
+            this.type = Math.random() > 0.5 ? 'triangle' : 'rect';
+            this.rotation = 0;
+            this.rotSpeed = Math.random() * 2;
+        }
+        update(dt, speedMult) {
+            this.x += (this.targetX - this.x) > 0 ? this.speed * dt * speedMult : -this.speed * dt * speedMult;
+            this.rotation += this.rotSpeed * dt * speedMult;
+            if (Math.abs(this.x - this.targetX) < 0.1) this.reset();
+        }
+        draw() {
+            const p = project(this.x, this.y);
+            ctx.save();
+            ctx.translate(p.x, p.y);
+            ctx.rotate(this.rotation);
+            ctx.strokeStyle = COLORS.distraction;
+            ctx.lineWidth = 2;
+            ctx.globalAlpha = 0.6 * p.scale;
+            const s = 40 * this.size * p.scale;
+            if (this.type === 'triangle') {
+                ctx.beginPath();
+                ctx.moveTo(0, -s);
+                ctx.lineTo(s, s);
+                ctx.lineTo(-s, s);
+                ctx.closePath();
+                ctx.stroke();
+            } else {
+                ctx.strokeRect(-s/2, -s/2, s, s);
+            }
+            ctx.restore();
+            ctx.globalAlpha = 1;
+        }
+    }
+
+    let distractions = [];
+
+    function generateLevel(levelNum) {
+        nodes = [];
+        const rows = 4 + Math.floor(levelNum / 2);
+        const nodesPerRow = 3;
+
+        // Start Node
+        const startNode = new Node('start', 0, 1, 'start');
+        nodes.push(startNode);
+
+        let prevRowNodes = [startNode];
+
+        for (let r = 1; r < rows; r++) {
+            const rowY = 1 - (r / rows);
+            const currentRowNodes = [];
+            const count = 2 + Math.floor(Math.random() * 2);
+
+            for (let i = 0; i < count; i++) {
+                const rowX = (i / (count - 1) - 0.5) * 2;
+                const type = (Math.random() < 0.2) ? 'trap' : 'normal';
+                const node = new Node(`node_${r}_${i}`, rowX, rowY, type);
+                nodes.push(node);
+                currentRowNodes.push(node);
+            }
+
+            // Link rows
+            prevRowNodes.forEach(prev => {
+                // Each node from previous row links to at least one in current
+                const targetCount = 1 + Math.floor(Math.random() * 2);
+                for(let j=0; j<targetCount; j++) {
+                    const target = currentRowNodes[Math.floor(Math.random() * currentRowNodes.length)];
+                    if (!prev.links.includes(target)) prev.links.push(target);
+                }
+            });
+
+            prevRowNodes = currentRowNodes;
+        }
+
+        // Goal Node
+        const goalNode = new Node('goal', 0, 0, 'goal');
+        nodes.push(goalNode);
+        prevRowNodes.forEach(prev => prev.links.push(goalNode));
+
+        return startNode;
+    }
+
+    // --- INITIALIZATION ---
+    function resize() {
+        width = canvas.width = window.innerWidth;
+        height = canvas.height = window.innerHeight;
+    }
+
+    window.addEventListener('resize', resize);
+    resize();
+
+    // --- GAME LOOP ---
+    function loop(timestamp) {
+        const dt = (timestamp - lastTime) / 1000;
+        lastTime = timestamp;
+
+        ctx.fillStyle = COLORS.bg;
+        ctx.fillRect(0, 0, width, height);
+
+        if (gameState === 'PLAYING' || gameState === 'LEVEL_COMPLETE') {
+            update(dt);
+            draw();
+        }
+
+        requestAnimationFrame(loop);
+    }
+
+    function update(dt) {
+        if (gameState === 'LEVEL_COMPLETE') {
+            transitionProgress += dt * 1.5;
+            if (transitionProgress >= 1) {
+                currentLevel++;
+                const start = generateLevel(currentLevel);
+                player.currentNode = start;
+                player.x = start.x;
+                player.y = start.y;
+                player.targetNode = null;
+                transitionProgress = 0;
+                gameState = 'PLAYING';
+            }
+            return;
+        }
+
+        const speedMult = player.isFocusing ? 0.3 : 1.0;
+        player.totalTime += dt;
+
+        // Update Focus Meter
+        if (player.isFocusing) {
+            player.focusMeter = Math.max(0, player.focusMeter - 40 * dt);
+            if (player.focusMeter === 0) player.isFocusing = false;
+        } else {
+            player.focusMeter = Math.min(100, player.focusMeter + 15 * dt);
+        }
+        focusBar.style.width = player.focusMeter + '%';
+
+        particles.forEach(p => p.update(dt, speedMult));
+        distractions.forEach(d => d.update(dt, speedMult));
+
+        // Player Movement
+        if (player.targetNode) {
+            player.moveProgress += player.speed * dt * speedMult;
+            if (player.moveProgress >= 1) {
+                player.currentNode = player.targetNode;
+                player.x = player.currentNode.x;
+                player.y = player.currentNode.y;
+                player.targetNode = null;
+                player.moveProgress = 0;
+
+                if (player.currentNode.type === 'goal') {
+                    completeLevel();
+                } else if (player.currentNode.type === 'trap') {
+                    handleTrap();
+                }
+            } else {
+                player.x = player.currentNode.x + (player.targetNode.x - player.currentNode.x) * player.moveProgress;
+                player.y = player.currentNode.y + (player.targetNode.y - player.currentNode.y) * player.moveProgress;
+            }
+        }
+
+        // Collision Check (Simple distance-based for distractions)
+        if (gameState === 'PLAYING') {
+            distractions.forEach(d => {
+                const dist = Math.hypot(player.x - d.x, player.y - d.y);
+                if (dist < 0.1) {
+                    handleDistractionHit();
+                }
+            });
+        }
+    }
+
+    let lastHitTime = 0;
+    function handleDistractionHit() {
+        const now = Date.now();
+        if (now - lastHitTime < 500) return; // Debounce hits
+        lastHitTime = now;
+
+        player.streak = 0;
+        player.mistakes++;
+        document.getElementById('streak-val').textContent = player.streak;
+        playSound(100, 'sawtooth', 0.2, 0.05);
+    }
+
+    function handleTrap() {
+        player.streak = 0;
+        player.mistakes++;
+        document.getElementById('streak-val').textContent = player.streak;
+        playSound(150, 'square', 0.3, 0.05);
+    }
+
+    function completeLevel() {
+        gameState = 'LEVEL_COMPLETE';
+        playSound(880, 'sine', 0.5, 0.1);
+        setTimeout(() => playSound(1320, 'sine', 0.5, 0.1), 100);
+
+        transitionProgress = 0;
+
+        if (currentLevel >= 5) {
+            showResult();
+        } else {
+            // Level transition will be handled in update
+        }
+    }
+
+    function showResult() {
+        gameState = 'RESULT';
+        document.getElementById('message-overlay').style.display = 'block';
+        document.getElementById('result-screen').style.display = 'block';
+
+        document.getElementById('res-focus').textContent = player.score;
+        document.getElementById('res-reaction').textContent = Math.round(player.totalTime / player.moves * 1000) + 'ms';
+        document.getElementById('res-mistakes').textContent = player.mistakes;
+        document.getElementById('res-streak').textContent = player.streak;
+    }
+
+    function project(x, y) {
+        // x is normalized -1 to 1, y is normalized 0 (far) to 1 (near)
+        let adjustedY = y;
+        if (gameState === 'LEVEL_COMPLETE') {
+            adjustedY += transitionProgress;
+        }
+
+        const scale = 0.3 + adjustedY * 0.7;
+        const screenX = width / 2 + x * (width * 0.4) * scale;
+        const screenY = height * (0.1 + adjustedY * 0.85);
+
+        let alpha = 1;
+        if (gameState === 'LEVEL_COMPLETE') {
+            alpha = Math.max(0, 1 - transitionProgress);
+        }
+
+        return { x: screenX, y: screenY, scale, alpha };
+    }
+
+    function draw() {
+        // Focus Effect Tint
+        if (player.isFocusing) {
+            ctx.fillStyle = 'rgba(0, 229, 255, 0.05)';
+            ctx.fillRect(0, 0, width, height);
+        }
+
+        // Draw Paths
+        ctx.setLineDash([]);
+        nodes.forEach(node => {
+            const p1 = project(node.x, node.y);
+            node.links.forEach(target => {
+                const p2 = project(target.x, target.y);
+
+                ctx.strokeStyle = target.type === 'trap' ? COLORS.danger : COLORS.path;
+                ctx.globalAlpha = 0.3 * p1.scale * p1.alpha;
+                ctx.lineWidth = 4 * p1.scale;
+                ctx.beginPath();
+                ctx.moveTo(p1.x, p1.y);
+                ctx.lineTo(p2.x, p2.y);
+                ctx.stroke();
+            });
+        });
+        ctx.globalAlpha = 1;
+
+        // Draw Nodes
+        nodes.forEach(node => {
+            const p = project(node.x, node.y);
+            ctx.fillStyle = node.type === 'goal' ? COLORS.goal : (node.type === 'trap' ? COLORS.danger : COLORS.path);
+            ctx.globalAlpha = p.alpha;
+            ctx.shadowBlur = 10 * p.scale;
+            ctx.shadowColor = ctx.fillStyle;
+
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 8 * p.scale, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.shadowBlur = 0;
+        });
+
+        // Draw Distractions
+        if (gameState !== 'LEVEL_COMPLETE') {
+            distractions.forEach(d => d.draw());
+        }
+
+        // Draw Player
+        if (gameState !== 'LEVEL_COMPLETE') {
+            const pp = project(player.x, player.y);
+            ctx.fillStyle = COLORS.player;
+            ctx.shadowBlur = 20 * pp.scale;
+            ctx.shadowColor = COLORS.player;
+            ctx.beginPath();
+            ctx.arc(pp.x, pp.y, 12 * pp.scale, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+        }
+
+        // Draw Background Depth Lines
+        ctx.strokeStyle = 'rgba(0, 255, 178, 0.05)';
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= 10; i++) {
+            const y = i / 10;
+            const p1 = project(-2, y);
+            const p2 = project(2, y);
+            ctx.beginPath();
+            ctx.moveTo(p1.x, p1.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.stroke();
+        }
+        for (let i = -2; i <= 2; i += 0.5) {
+            const p1 = project(i, 0);
+            const p2 = project(i, 1);
+            ctx.beginPath();
+            ctx.moveTo(p1.x, p1.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.stroke();
+        }
+
+        // Draw Particles (Background)
+        particles.forEach(p => p.draw());
+    }
+
+    function startGame() {
+        initAudio();
+        document.querySelector('.hud-top').style.display = 'flex';
+        document.getElementById('message-overlay').style.display = 'none';
+        document.getElementById('menu-screen').style.display = 'none';
+        document.getElementById('result-screen').style.display = 'none';
+
+        gameState = 'PLAYING';
+        currentLevel = 1;
+        player.score = 0;
+        player.streak = 0;
+        player.mistakes = 0;
+        player.moves = 0;
+        player.focusMeter = 100;
+
+        const start = generateLevel(currentLevel);
+        player.currentNode = start;
+        player.x = start.x;
+        player.y = start.y;
+        player.targetNode = null;
+
+        distractions = Array.from({ length: 5 }, () => new Distraction());
+
+        document.getElementById('score-val').textContent = '0';
+        document.getElementById('streak-val').textContent = '0';
+    }
+
+    // --- INPUT HANDLING ---
+    function handleTap(e) {
+        if (gameState !== 'PLAYING' || player.targetNode) return;
+
+        const rect = canvas.getBoundingClientRect();
+        const touchX = (e.clientX || e.touches[0].clientX) - rect.left;
+        const touchY = (e.clientY || e.touches[0].clientY) - rect.top;
+
+        // Find nearest linked node
+        let bestNode = null;
+        let minDist = Infinity;
+
+        player.currentNode.links.forEach(node => {
+            const p = project(node.x, node.y);
+            const d = Math.hypot(touchX - p.x, touchY - p.y);
+            if (d < 100 && d < minDist) {
+                minDist = d;
+                bestNode = node;
+            }
+        });
+
+        if (bestNode) {
+            player.targetNode = bestNode;
+            player.moveProgress = 0;
+            player.moves++;
+            player.streak++;
+            player.score += 10 * player.streak;
+            document.getElementById('score-val').textContent = player.score;
+            document.getElementById('streak-val').textContent = player.streak;
+            playSound(440 + player.streak * 20, 'sine', 0.2, 0.1);
+        }
+    }
+
+    window.addEventListener('mousedown', (e) => {
+        handleTap(e);
+        player.isFocusing = true;
+    });
+    window.addEventListener('mouseup', () => player.isFocusing = false);
+
+    window.addEventListener('touchstart', (e) => {
+        handleTap(e);
+        player.isFocusing = true;
+    });
+    window.addEventListener('touchend', () => player.isFocusing = false);
+
+    requestAnimationFrame(loop);
+
+</script>
+</body>
+</html>
