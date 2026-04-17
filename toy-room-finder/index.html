@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Toy Room Finder</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #000;
+        }
+        canvas {
+            display: block;
+            touch-action: none;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const state = {
+            MENU: 'menu',
+            PLAYING: 'playing',
+            REWARD: 'reward'
+        };
+
+        let gameState = state.MENU;
+        let toys = [];
+        let targetToy = null;
+        let width, height;
+        let scale = 1;
+        let hintTimeout = null;
+
+        // --- DRAW UTILS ---
+        const DrawUtils = {
+            circle(ctx, x, y, r, color) {
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.arc(x, y, r, 0, Math.PI * 2);
+                ctx.fill();
+            },
+            rect(ctx, x, y, w, h, color, radius = 0) {
+                ctx.fillStyle = color;
+                if (radius > 0) {
+                    ctx.beginPath();
+                    ctx.roundRect(x, y, w, h, radius * scale);
+                    ctx.fill();
+                } else {
+                    ctx.fillRect(x, y, w, h);
+                }
+            },
+            oval(ctx, x, y, rw, rh, color) {
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.ellipse(x, y, rw, rh, 0, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        };
+
+        // --- TOY VISUALS ---
+        const ToyBlueprints = {
+            'Teddy Bear': (ctx, size) => {
+                const s = size / 100;
+                DrawUtils.circle(ctx, -30 * s, -35 * s, 15 * s, '#8d6e63'); // Left Ear
+                DrawUtils.circle(ctx, 30 * s, -35 * s, 15 * s, '#8d6e63');  // Right Ear
+                DrawUtils.circle(ctx, 0, 20 * s, 40 * s, '#a1887f');       // Body
+                DrawUtils.circle(ctx, 0, -10 * s, 35 * s, '#8d6e63');      // Head
+                DrawUtils.circle(ctx, 0, 5 * s, 12 * s, '#d7ccc8');        // Muzzle
+                DrawUtils.circle(ctx, -12 * s, -15 * s, 4 * s, '#2d3436'); // Left Eye
+                DrawUtils.circle(ctx, 12 * s, -15 * s, 4 * s, '#2d3436');  // Right Eye
+                DrawUtils.circle(ctx, 0, 2 * s, 5 * s, '#2d3436');         // Nose
+            },
+            'Ball': (ctx, size) => {
+                const s = size / 100;
+                DrawUtils.circle(ctx, 0, 0, 45 * s, '#ff7675');
+                ctx.strokeStyle = '#fab1a0';
+                ctx.lineWidth = 15 * s;
+                ctx.beginPath(); ctx.arc(0, 0, 45 * s, -0.5, 0.5); ctx.stroke();
+                ctx.beginPath(); ctx.arc(0, 0, 45 * s, Math.PI - 0.5, Math.PI + 0.5); ctx.stroke();
+            },
+            'Toy Car': (ctx, size) => {
+                const s = size / 100;
+                DrawUtils.circle(ctx, -25 * s, 25 * s, 10 * s, '#2d3436');
+                DrawUtils.circle(ctx, 25 * s, 25 * s, 10 * s, '#2d3436');
+                DrawUtils.rect(ctx, -45 * s, 0, 90 * s, 25 * s, '#0984e3', 5);
+                DrawUtils.rect(ctx, -25 * s, -20 * s, 50 * s, 20 * s, '#74b9ff', 10);
+            },
+            'Blocks': (ctx, size) => {
+                const s = size / 100;
+                DrawUtils.rect(ctx, -35 * s, 0, 30 * s, 30 * s, '#fdcb6e', 4);
+                DrawUtils.rect(ctx, 5 * s, 0, 30 * s, 30 * s, '#e17055', 4);
+                DrawUtils.rect(ctx, -15 * s, -35 * s, 30 * s, 30 * s, '#55efc4', 4);
+            },
+            'Doll': (ctx, size) => {
+                const s = size / 100;
+                ctx.fillStyle = '#fd79a8';
+                ctx.beginPath(); ctx.moveTo(0, -10 * s); ctx.lineTo(-30 * s, 40 * s); ctx.lineTo(30 * s, 40 * s); ctx.fill();
+                DrawUtils.circle(ctx, 0, -25 * s, 20 * s, '#ffe0bd');
+                DrawUtils.circle(ctx, -15 * s, -30 * s, 10 * s, '#f1c40f');
+                DrawUtils.circle(ctx, 15 * s, -30 * s, 10 * s, '#f1c40f');
+                DrawUtils.rect(ctx, -20 * s, -45 * s, 40 * s, 20 * s, '#f1c40f', 10);
+                DrawUtils.circle(ctx, -7 * s, -25 * s, 2 * s, '#2d3436');
+                DrawUtils.circle(ctx, 7 * s, -25 * s, 2 * s, '#2d3436');
+            },
+            'Duck': (ctx, size) => {
+                const s = size / 100;
+                DrawUtils.oval(ctx, 0, 10 * s, 35 * s, 25 * s, '#f1c40f');
+                DrawUtils.circle(ctx, 25 * s, -15 * s, 18 * s, '#f1c40f');
+                DrawUtils.rect(ctx, 35 * s, -18 * s, 15 * s, 8 * s, '#e67e22', 4);
+                DrawUtils.circle(ctx, 30 * s, -20 * s, 2 * s, '#2d3436');
+            },
+            'Train': (ctx, size) => {
+                const s = size / 100;
+                DrawUtils.circle(ctx, -25 * s, 25 * s, 8 * s, '#2d3436');
+                DrawUtils.circle(ctx, 0 * s, 25 * s, 8 * s, '#2d3436');
+                DrawUtils.circle(ctx, 25 * s, 25 * s, 8 * s, '#2d3436');
+                DrawUtils.rect(ctx, -35 * s, -5 * s, 75 * s, 30 * s, '#d63031', 2);
+                DrawUtils.rect(ctx, 10 * s, -35 * s, 30 * s, 30 * s, '#d63031', 2);
+                DrawUtils.rect(ctx, -25 * s, -25 * s, 12 * s, 20 * s, '#2d3436');
+            }
+        };
+
+        class Toy {
+            constructor(name, x, y, size) {
+                this.name = name;
+                this.x = x;
+                this.y = y;
+                this.baseSize = size;
+                this.size = size;
+                this.bounceValue = 0;
+                this.wiggleValue = 0;
+                this.isCorrect = false;
+                this.isWrong = false;
+                this.hintGlow = 0;
+            }
+            update() {
+                if (this.isCorrect) this.bounceValue = Math.abs(Math.sin(Date.now() / 200)) * (40 * scale);
+                else this.bounceValue = 0;
+                if (this.isWrong) this.wiggleValue = Math.sin(Date.now() / 50) * (15 * scale);
+                else this.wiggleValue = 0;
+                if (this.hintGlow > 0) this.hintGlow = 0.5 + 0.5 * Math.sin(Date.now() / 300);
+            }
+            draw(ctx) {
+                ctx.save();
+                ctx.translate(this.x + this.wiggleValue, this.y - this.bounceValue);
+                // Shadow
+                ctx.fillStyle = 'rgba(0,0,0,0.15)';
+                ctx.beginPath(); ctx.ellipse(0, this.baseSize/2 + 5 * scale, this.baseSize/2, 12 * scale, 0, 0, Math.PI * 2); ctx.fill();
+                // Glow
+                if (this.hintGlow > 0) {
+                    ctx.save();
+                    ctx.shadowBlur = 30 * this.hintGlow; ctx.shadowColor = '#ffe66d';
+                    ctx.beginPath(); ctx.arc(0, 0, this.baseSize * 0.75, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(255, 230, 109, ${0.4 * this.hintGlow})`; ctx.fill();
+                    ctx.restore();
+                }
+                ToyBlueprints[this.name](ctx, this.size);
+                ctx.restore();
+            }
+            isHit(mx, my) {
+                const dx = mx - this.x, dy = my - this.y;
+                return (dx * dx + dy * dy) < (this.size * this.size * 1.5); // Generous hitbox
+            }
+        }
+
+        const AudioSystem = {
+            ctx: null,
+            init() { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); },
+            resume() { if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume(); },
+            playTone(freq, type, duration, volume) {
+                this.init(); this.resume();
+                const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
+                osc.type = type; osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                gain.gain.setValueAtTime(volume, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.start(); osc.stop(this.ctx.currentTime + duration);
+            },
+            playTap() { this.playTone(300, 'sine', 0.1, 0.3); },
+            playSuccess() {
+                this.playTone(523, 'sine', 0.2, 0.3);
+                setTimeout(() => this.playTone(659, 'sine', 0.2, 0.3), 100);
+                setTimeout(() => this.playTone(783, 'sine', 0.4, 0.3), 200);
+            },
+            speak(text) {
+                if ('speechSynthesis' in window) {
+                    window.speechSynthesis.cancel();
+                    const u = new SpeechSynthesisUtterance(text); u.rate = 0.85; u.pitch = 1.2;
+                    window.speechSynthesis.speak(u);
+                }
+            }
+        };
+
+        const Game = {
+            init() {
+                this.resize(); window.addEventListener('resize', () => this.resize());
+                const handler = (e) => {
+                    const rect = canvas.getBoundingClientRect();
+                    const x = (e.clientX || (e.touches && e.touches[0].clientX)) - rect.left;
+                    const y = (e.clientY || (e.touches && e.touches[0].clientY)) - rect.top;
+                    this.handleInput(x, y);
+                };
+                canvas.addEventListener('mousedown', handler);
+                canvas.addEventListener('touchstart', (e) => { e.preventDefault(); handler(e); });
+                this.loop();
+            },
+            resize() {
+                width = window.innerWidth; height = window.innerHeight;
+                canvas.width = width; canvas.height = height;
+                scale = Math.min(width, height) / 600;
+                if (toys.length > 0) this.spawnToys();
+            },
+            spawnToys() {
+                toys = [];
+                const names = Object.keys(ToyBlueprints).sort(() => 0.5 - Math.random());
+                const area = { l: width * 0.15, r: width * 0.85, t: height * 0.5, b: height * 0.85 };
+                names.slice(0, 8).forEach(name => {
+                    toys.push(new Toy(name, area.l + Math.random() * (area.r - area.l), area.t + Math.random() * (area.b - area.t), 100 * scale));
+                });
+                toys.sort((a, b) => a.y - b.y);
+            },
+            startPlaying() {
+                AudioSystem.init(); gameState = state.PLAYING;
+                this.spawnToys(); this.pickTarget();
+            },
+            pickTarget() {
+                targetToy = toys[Math.floor(Math.random() * toys.length)];
+                AudioSystem.speak(`Find the ${targetToy.name}`);
+                toys.forEach(t => { t.isCorrect = t.isWrong = false; t.hintGlow = 0; });
+                if (hintTimeout) clearTimeout(hintTimeout);
+                hintTimeout = setTimeout(() => { if (gameState === state.PLAYING) targetToy.hintGlow = 1; }, 8000);
+            },
+            handleInput(mx, my) {
+                if (gameState === state.MENU) {
+                    if (this.isOverButton(mx, my, width/2, height/2 + 60 * scale)) this.startPlaying();
+                } else if (gameState === state.REWARD) {
+                    if (this.isOverButton(mx, my, width/2, height*0.75)) this.nextTurn();
+                } else if (gameState === state.PLAYING) {
+                    for (let i = toys.length - 1; i >= 0; i--) {
+                        if (toys[i].isHit(mx, my)) {
+                            if (toys[i] === targetToy) {
+                                toys[i].isCorrect = true; gameState = state.REWARD;
+                                AudioSystem.playSuccess(); Confetti.spawn(mx, my); Stickers.add(toys[i].name);
+                            } else {
+                                toys[i].isWrong = true; AudioSystem.playTap();
+                                setTimeout(() => toys[i].isWrong = false, 500);
+                            }
+                            return;
+                        }
+                    }
+                }
+            },
+            isOverButton(mx, my, cx, cy) {
+                const w = 220 * scale, h = 80 * scale;
+                return mx >= cx - w/2 && mx <= cx + w/2 && my >= cy - h/2 && my <= cy + h/2;
+            },
+            nextTurn() { gameState = state.PLAYING; this.spawnToys(); this.pickTarget(); },
+            update() { toys.forEach(t => t.update()); Confetti.update(); Particles.update(); },
+            draw() {
+                ctx.clearRect(0, 0, width, height);
+                this.drawRoom(); Particles.draw(ctx);
+                if (gameState === state.MENU) this.drawMenu();
+                else {
+                    toys.forEach(t => t.draw(ctx)); Confetti.draw(ctx); this.drawHUD();
+                    if (gameState === state.REWARD) this.drawReward();
+                }
+                Stickers.draw(ctx);
+            },
+            drawRoom() {
+                ctx.fillStyle = '#dfe6e9'; ctx.fillRect(0, 0, width, height * 0.45); // Wall
+                const g = ctx.createLinearGradient(0, height * 0.45, 0, height);
+                g.addColorStop(0, '#fab1a0'); g.addColorStop(1, '#e17055');
+                ctx.fillStyle = g; ctx.fillRect(0, height * 0.45, width, height * 0.55); // Floor
+                // Window
+                ctx.fillStyle = '#81ecec'; ctx.fillRect(width * 0.1, height * 0.1, width * 0.2, height * 0.2);
+                ctx.strokeStyle = '#fff'; ctx.lineWidth = 6 * scale; ctx.strokeRect(width * 0.1, height * 0.1, width * 0.2, height * 0.2);
+            },
+            drawMenu() {
+                this.drawPanel(width/2, height/2, 420 * scale, 320 * scale);
+                ctx.fillStyle = '#ff6b6b'; ctx.font = `bold ${44 * scale}px Arial`; ctx.textAlign = 'center';
+                ctx.fillText("Toy Room Finder", width/2, height/2 - 60 * scale);
+                this.drawButton(width/2, height/2 + 60 * scale, "PLAY!");
+            },
+            drawHUD() {
+                const w = 380 * scale, h = 90 * scale;
+                this.drawPanel(width/2, 60 * scale, w, h);
+                if (targetToy) {
+                    ctx.save(); ctx.translate(width/2 - w/2 + 55 * scale, 60 * scale);
+                    ToyBlueprints[targetToy.name](ctx, 45 * scale); ctx.restore();
+                    ctx.fillStyle = '#2d3436'; ctx.font = `bold ${26 * scale}px Arial`; ctx.textAlign = 'left';
+                    ctx.fillText(`Find the ${targetToy.name}!`, width/2 - w/2 + 100 * scale, 70 * scale);
+                }
+            },
+            drawReward() {
+                this.drawPanel(width/2, height/2, 400 * scale, 300 * scale);
+                ctx.fillStyle = '#ff6b6b'; ctx.font = `bold ${44 * scale}px Arial`; ctx.textAlign = 'center';
+                ctx.fillText("Great Job!", width/2, height/2 - 50 * scale);
+                ctx.font = `${80 * scale}px Arial`; ctx.fillText("⭐", width/2, height/2 + 40 * scale);
+                this.drawButton(width/2, height*0.75, "Next Toy!");
+            },
+            drawPanel(x, y, w, h) {
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.95)'; ctx.beginPath();
+                ctx.roundRect(x - w/2, y - h/2, w, h, 35 * scale); ctx.fill();
+                ctx.strokeStyle = '#ffe66d'; ctx.lineWidth = 10 * scale; ctx.stroke();
+            },
+            drawButton(x, y, text) {
+                const w = 220 * scale, h = 80 * scale;
+                ctx.fillStyle = '#4ecdc4'; ctx.beginPath(); ctx.roundRect(x - w/2, y - h/2, w, h, 40 * scale); ctx.fill();
+                ctx.fillStyle = '#3ba39b'; ctx.fillRect(x - w/2, y + h/2 - 12 * scale, w, 12 * scale);
+                ctx.fillStyle = 'white'; ctx.font = `bold ${32 * scale}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillText(text, x, y - 5 * scale);
+            },
+            loop() { this.update(); this.draw(); requestAnimationFrame(() => this.loop()); }
+        };
+
+        const Confetti = {
+            p: [],
+            spawn(x, y) {
+                for (let i = 0; i < 60; i++) this.p.push({ x, y, vx: (Math.random()-0.5)*12, vy: (Math.random()-1)*18, c: `hsl(${Math.random()*360},100%,50%)`, s: (Math.random()*10+5)*scale, l: 1 });
+            },
+            update() {
+                for (let i = this.p.length-1; i>=0; i--) {
+                    const p = this.p[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.6; p.l -= 0.015;
+                    if (p.l <= 0) this.p.splice(i, 1);
+                }
+            },
+            draw(ctx) {
+                this.p.forEach(p => { ctx.globalAlpha = p.l; ctx.fillStyle = p.c; ctx.fillRect(p.x, p.y, p.s, p.s); });
+                ctx.globalAlpha = 1;
+            }
+        };
+
+        const Particles = {
+            list: [],
+            update() {
+                if (Math.random() < 0.08) this.list.push({ x: Math.random()*width, y: Math.random()*height, vx: (Math.random()-0.5)*0.6, vy: (Math.random()-0.5)*0.6, s: Math.random()*4*scale, a: Math.random()*0.4 });
+                if (this.list.length > 60) this.list.shift();
+                this.list.forEach(p => { p.x += p.vx; p.y += p.vy; });
+            },
+            draw(ctx) { this.list.forEach(p => { ctx.fillStyle = `rgba(255,255,255,${p.a})`; ctx.beginPath(); ctx.arc(p.x, p.y, p.s, 0, Math.PI*2); ctx.fill(); }); }
+        };
+
+        const Stickers = {
+            col: JSON.parse(localStorage.getItem('toy-stickers') || '[]'),
+            add(n) { if (!this.col.includes(n)) { this.col.push(n); localStorage.setItem('toy-stickers', JSON.stringify(this.col)); } },
+            draw(ctx) {
+                const names = Object.keys(ToyBlueprints), size = 45 * scale, gap = 12 * scale;
+                const totalW = names.length * (size + gap) - gap;
+                const startX = (width - totalW) / 2, y = height - 70 * scale;
+                names.forEach((n, i) => {
+                    const x = startX + i * (size + gap);
+                    ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.beginPath(); ctx.arc(x + size/2, y + size/2, size/2, 0, Math.PI*2); ctx.fill();
+                    ctx.strokeStyle = '#fff'; ctx.setLineDash([4, 4]); ctx.stroke(); ctx.setLineDash([]);
+                    if (this.col.includes(n)) { ctx.fillStyle = '#ff6b6b'; ctx.font = `${30 * scale}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText("⭐", x + size/2, y + size/2); }
+                });
+            }
+        };
+
+        window.onload = () => Game.init();
+    </script>
+</body>
+</html>
