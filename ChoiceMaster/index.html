@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Choice Master | Brainy Play Hub</title>
+    <style>
+        :root {
+            --bg-color: #f0f4f8;
+            --card-bg: #ffffff;
+            --primary-color: #4834d4;
+            --secondary-color: #686de0;
+            --text-color: #2d3436;
+            --honesty-color: #00b894;
+            --kindness-color: #fd79a8;
+            --courage-color: #e17055;
+            --focus-color: #0984e3;
+            --font-main: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: var(--font-main);
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        #game-container {
+            width: 100%;
+            max-width: 500px;
+            height: 100vh;
+            max-height: 800px;
+            background: var(--card-bg);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        @media (min-width: 500px) {
+            #game-container {
+                height: 90vh;
+                border-radius: 20px;
+            }
+        }
+
+        /* Screens */
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none;
+            flex-direction: column;
+            padding: 20px;
+            opacity: 0;
+            transition: opacity 0.4s ease, transform 0.4s ease;
+            transform: translateY(20px);
+        }
+
+        .screen.active {
+            display: flex;
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Menu Screen */
+        #menu-screen {
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%);
+            color: white;
+        }
+
+        .logo-box {
+            font-size: 80px;
+            margin-bottom: 20px;
+            filter: drop-shadow(0 5px 15px rgba(0,0,0,0.2));
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin: 0 0 10px 0;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .start-btn {
+            background: white;
+            color: var(--primary-color);
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            margin-top: 30px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            transition: transform 0.2s;
+        }
+
+        .start-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* Scenario Screen */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .trait-bars {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+        .trait-pill {
+            background: #f1f2f6;
+            border-radius: 10px;
+            padding: 5px 10px;
+            font-size: 0.8rem;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .trait-value {
+            font-weight: bold;
+        }
+
+        .visual-card {
+            flex: 1;
+            background: #f9f9fb;
+            border-radius: 15px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 100px;
+            margin-bottom: 20px;
+            border: 4px solid #eee;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .visual-card::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(to bottom, transparent, rgba(0,0,0,0.02));
+        }
+
+        .scenario-text {
+            font-size: 1.1rem;
+            line-height: 1.4;
+            text-align: center;
+            margin-bottom: 20px;
+            min-height: 3em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .choices-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .choice-card {
+            background: white;
+            border: 2px solid #dfe6e9;
+            border-radius: 12px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .choice-card:hover {
+            border-color: var(--primary-color);
+            background: #f8faff;
+        }
+
+        .choice-card:active {
+            transform: scale(0.98);
+        }
+
+        /* Result Screen */
+        #result-screen {
+            justify-content: center;
+            text-align: center;
+        }
+
+        .outcome-text {
+            font-size: 1.2rem;
+            margin: 20px 0;
+        }
+
+        .trait-change {
+            font-weight: bold;
+            margin: 10px 0;
+        }
+
+        .next-btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            cursor: pointer;
+        }
+
+        /* Summary Screen */
+        #summary-screen {
+            align-items: center;
+            text-align: center;
+            overflow-y: auto;
+        }
+
+        .summary-title {
+            font-size: 1.8rem;
+            color: var(--primary-color);
+            margin-top: 20px;
+        }
+
+        .stat-list {
+            width: 100%;
+            margin: 30px 0;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .stat-label {
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+        }
+
+        .bar-bg {
+            height: 12px;
+            background: #eee;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .bar-fill {
+            height: 100%;
+            width: 0%;
+            transition: width 1s ease-out;
+        }
+
+        /* Animations */
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .animate-bounce {
+            animation: bounce 2s infinite;
+        }
+
+        /* Audio feedback */
+        .feedback-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 100;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <!-- Menu Screen -->
+    <div id="menu-screen" class="screen active">
+        <div class="logo-box animate-bounce">⚖️</div>
+        <h1>Choice Master</h1>
+        <p>Think Smart. Choose Right.</p>
+        <button class="start-btn" onclick="startGame()">START JOURNEY</button>
+    </div>
+
+    <!-- Scenario Screen -->
+    <div id="scenario-screen" class="screen">
+        <div class="header">
+            <span id="level-indicator">Scenario 1/15</span>
+        </div>
+
+        <div class="trait-bars">
+            <div class="trait-pill"><span style="color:var(--honesty-color)">😇</span> Honesty: <span id="val-honesty" class="trait-value">50</span></div>
+            <div class="trait-pill"><span style="color:var(--kindness-color)">💖</span> Kindness: <span id="val-kindness" class="trait-value">50</span></div>
+            <div class="trait-pill"><span style="color:var(--courage-color)">🦁</span> Courage: <span id="val-courage" class="trait-value">50</span></div>
+            <div class="trait-pill"><span style="color:var(--focus-color)">🎯</span> Focus: <span id="val-focus" class="trait-value">50</span></div>
+        </div>
+
+        <div class="visual-card" id="visual-icon">🏺</div>
+        <div class="scenario-text" id="scenario-text">Scenario text goes here...</div>
+
+        <div class="choices-container" id="choices-container">
+            <!-- Choices will be injected here -->
+        </div>
+    </div>
+
+    <!-- Result Screen -->
+    <div id="result-screen" class="screen">
+        <div id="result-emoji" style="font-size: 80px;">✨</div>
+        <div class="outcome-text" id="outcome-text">Outcome explanation...</div>
+        <div class="trait-change" id="trait-change"></div>
+        <button class="next-btn" onclick="nextScenario()">CONTINUE</button>
+    </div>
+
+    <!-- Summary Screen -->
+    <div id="summary-screen" class="screen">
+        <h2>Your Journey Result</h2>
+        <div id="personality-icon" style="font-size: 80px; margin: 10px 0;">👑</div>
+        <div class="summary-title" id="personality-title">The Honest Hero</div>
+
+        <div class="stat-list">
+            <div class="stat-item">
+                <div class="stat-label"><span>Honesty</span> <span id="final-honesty">70</span></div>
+                <div class="bar-bg"><div id="bar-honesty" class="bar-fill" style="background:var(--honesty-color)"></div></div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label"><span>Kindness</span> <span id="final-kindness">70</span></div>
+                <div class="bar-bg"><div id="bar-kindness" class="bar-fill" style="background:var(--kindness-color)"></div></div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label"><span>Courage</span> <span id="final-courage">70</span></div>
+                <div class="bar-bg"><div id="bar-courage" class="bar-fill" style="background:var(--courage-color)"></div></div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label"><span>Focus</span> <span id="final-focus">70</span></div>
+                <div class="bar-bg"><div id="bar-focus" class="bar-fill" style="background:var(--focus-color)"></div></div>
+            </div>
+        </div>
+
+        <button class="start-btn" onclick="location.reload()">PLAY AGAIN</button>
+        <button class="start-btn" style="background:transparent; color:#666; box-shadow:none;" onclick="window.location.href='../index.html'">BACK TO HUB</button>
+    </div>
+
+    <div class="feedback-overlay" id="feedback-overlay"></div>
+</div>
+
+<script>
+    // --- GAME DATA ---
+    const scenarios = [
+        {
+            category: "honesty",
+            text: "You accidentally broke a vase at home. No one saw you.",
+            visual: "🏺",
+            choices: [
+                { text: "Tell the truth", outcome: "Your parents appreciate your honesty.", traits: { honesty: 15 }, tone: "positive" },
+                { text: "Hide the pieces", outcome: "You worry they might find out later.", traits: { honesty: -10 }, tone: "negative" },
+                { text: "Say the cat did it", outcome: "The cat gets in trouble for your mistake.", traits: { honesty: -15, kindness: -5 }, tone: "negative" }
+            ]
+        },
+        {
+            category: "kindness",
+            text: "You see a student being teased by a group of kids.",
+            visual: "🏫",
+            choices: [
+                { text: "Stand up for them", outcome: "You showed great bravery and kindness.", traits: { kindness: 15, courage: 15 }, tone: "positive" },
+                { text: "Go tell a teacher", outcome: "You did the right thing by getting help.", traits: { kindness: 10, honesty: 10 }, tone: "positive" },
+                { text: "Walk away", outcome: "The student feels lonely and sad.", traits: { kindness: -10, courage: -5 }, tone: "negative" }
+            ]
+        },
+        {
+            category: "honesty",
+            text: "You found a 5-dollar bill on the playground floor.",
+            visual: "💵",
+            choices: [
+                { text: "Hand it to the office", outcome: "Someone might get their lost money back!", traits: { honesty: 15 }, tone: "positive" },
+                { text: "Ask if anyone lost it", outcome: "You are trying to find the owner.", traits: { honesty: 10, kindness: 5 }, tone: "positive" },
+                { text: "Keep it for snacks", outcome: "You have money now, but it wasn't yours.", traits: { honesty: -15 }, tone: "negative" }
+            ]
+        },
+        {
+            category: "focus",
+            text: "You have homework, but your favorite show is on TV.",
+            visual: "📺",
+            choices: [
+                { text: "Finish homework first", outcome: "You finished early and can relax now!", traits: { focus: 15 }, tone: "positive" },
+                { text: "Watch now, work later", outcome: "You feel rushed and tired doing it later.", traits: { focus: -10 }, tone: "negative" },
+                { text: "Do both at once", outcome: "You made mistakes because of distractions.", traits: { focus: -5 }, tone: "neutral" }
+            ]
+        },
+        {
+            category: "kindness",
+            text: "A new student is sitting all alone at lunch time.",
+            visual: "🍱",
+            choices: [
+                { text: "Invite them to join you", outcome: "You made a new friend feel welcome!", traits: { kindness: 15 }, tone: "positive" },
+                { text: "Smile and say hi", outcome: "A small gesture can brighten a day.", traits: { kindness: 10 }, tone: "positive" },
+                { text: "Stay with your friends", outcome: "The new student still feels left out.", traits: { kindness: -5 }, tone: "neutral" }
+            ]
+        },
+        {
+            category: "courage",
+            text: "Your team is losing a game because someone is cheating.",
+            visual: "⚽",
+            choices: [
+                { text: "Speak up politely", outcome: "You stood up for fair play!", traits: { courage: 15, honesty: 10 }, tone: "positive" },
+                { text: "Ignore it and play hard", outcome: "You tried your best anyway.", traits: { focus: 10 }, tone: "neutral" },
+                { text: "Cheat too to win", outcome: "Winning isn't fun if you don't play fair.", traits: { honesty: -20, courage: -5 }, tone: "negative" }
+            ]
+        },
+        {
+            category: "honesty",
+            text: "You found a cool pencil on a desk that isn't yours.",
+            visual: "✏️",
+            choices: [
+                { text: "Leave it there", outcome: "You respected someone else's space.", traits: { honesty: 10 }, tone: "positive" },
+                { text: "Take it home", outcome: "Someone is looking for their lost pencil.", traits: { honesty: -15 }, tone: "negative" },
+                { text: "Ask the teacher", outcome: "You helped find the rightful owner.", traits: { honesty: 10, kindness: 5 }, tone: "positive" }
+            ]
+        },
+        {
+            category: "focus",
+            text: "The teacher is explaining a project, but a bird is outside.",
+            visual: "🐦",
+            choices: [
+                { text: "Look at the teacher", outcome: "You understand exactly what to do!", traits: { focus: 15 }, tone: "positive" },
+                { text: "Watch the bird", outcome: "You missed the instructions for the task.", traits: { focus: -10 }, tone: "negative" },
+                { text: "Draw the bird", outcome: "The drawing is nice, but you're lost.", traits: { focus: -5 }, tone: "neutral" }
+            ]
+        },
+        {
+            category: "honesty",
+            text: "A friend asks to copy your answers for the test.",
+            visual: "📝",
+            choices: [
+                { text: "Say no and offer help", outcome: "Helping them learn is better than copying.", traits: { honesty: 15, kindness: 10 }, tone: "positive" },
+                { text: "Just say no", outcome: "You kept the test fair for everyone.", traits: { honesty: 10 }, tone: "positive" },
+                { text: "Let them copy", outcome: "Neither of you is learning the material.", traits: { honesty: -15, focus: -5 }, tone: "negative" }
+            ]
+        },
+        {
+            category: "courage",
+            text: "You are late to class and the door is closed.",
+            visual: "🚪",
+            choices: [
+                { text: "Knock and apologize", outcome: "It's brave to admit you were late.", traits: { courage: 15, honesty: 10 }, tone: "positive" },
+                { text: "Wait outside", outcome: "You are missing even more class time.", traits: { focus: -10, courage: -5 }, tone: "negative" },
+                { text: "Go to the nurse instead", outcome: "Avoiding the problem doesn't solve it.", traits: { honesty: -10, courage: -10 }, tone: "negative" }
+            ]
+        },
+        {
+            category: "kindness",
+            text: "Someone drops their tray in the cafeteria. Clatter!",
+            visual: "🍕",
+            choices: [
+                { text: "Help them clean up", outcome: "You turned an embarrassing moment around.", traits: { kindness: 15 }, tone: "positive" },
+                { text: "Make sure they are okay", outcome: "Asking shows you really care.", traits: { kindness: 10 }, tone: "positive" },
+                { text: "Laugh with the others", outcome: "Being mean feels bad for everyone.", traits: { kindness: -20 }, tone: "negative" }
+            ]
+        },
+        {
+            category: "courage",
+            text: "A friend wants to do something dangerous on the swings.",
+            visual: "🛝",
+            choices: [
+                { text: "Say it's a bad idea", outcome: "You were brave enough to say 'no'.", traits: { courage: 15 }, tone: "positive" },
+                { text: "Suggest a safer game", outcome: "You kept your friend safe.", traits: { kindness: 10, courage: 5 }, tone: "positive" },
+                { text: "Join in anyway", outcome: "You could have gotten really hurt.", traits: { courage: -10, focus: -10 }, tone: "negative" }
+            ]
+        },
+        {
+            category: "honesty",
+            text: "You saw a classmate take something from the teacher's desk.",
+            visual: "🍎",
+            choices: [
+                { text: "Tell the teacher", outcome: "You helped keep the classroom safe.", traits: { honesty: 15, courage: 10 }, tone: "positive" },
+                { text: "Tell them to put it back", outcome: "You gave them a chance to fix it.", traits: { courage: 10, kindness: 5 }, tone: "positive" },
+                { text: "Keep it a secret", outcome: "Ignoring wrong things doesn't help.", traits: { honesty: -10 }, tone: "neutral" }
+            ]
+        },
+        {
+            category: "focus",
+            text: "You're supposed to be cleaning your room, but you found a toy.",
+            visual: "🧸",
+            choices: [
+                { text: "Put it away and continue", outcome: "Great job staying on task!", traits: { focus: 15 }, tone: "positive" },
+                { text: "Play for 'just 5 minutes'", outcome: "An hour passed and it's still messy.", traits: { focus: -10 }, tone: "negative" },
+                { text: "Hide toys under bed", outcome: "That's not really cleaning, is it?", traits: { honesty: -5, focus: -5 }, tone: "neutral" }
+            ]
+        },
+        {
+            category: "kindness",
+            text: "A neighbor needs help carrying groceries.",
+            visual: "🛍️",
+            choices: [
+                { text: "Offer to help", outcome: "You made their day much easier!", traits: { kindness: 15 }, tone: "positive" },
+                { text: "Hold the door open", outcome: "Politeness is always appreciated.", traits: { kindness: 10 }, tone: "positive" },
+                { text: "Pretend not to see", outcome: "You missed a chance to be helpful.", traits: { kindness: -5 }, tone: "neutral" }
+            ]
+        }
+    ];
+
+    // --- EXPERT SCENARIOS ---
+    const expertScenarios = [
+        {
+            category: "mixed",
+            text: "Your best friend cheated on a test but begged you not to tell.",
+            visual: "🤫",
+            choices: [
+                { text: "Encourage them to confess", outcome: "Helping a friend be honest is true kindness.", traits: { honesty: 15, kindness: 15, courage: 10 }, tone: "positive" },
+                { text: "Tell the teacher", outcome: "Honesty is important, but your friend is sad.", traits: { honesty: 15, kindness: -5, courage: 15 }, tone: "neutral" },
+                { text: "Keep the secret", outcome: "You are loyal, but dishonest to the school.", traits: { kindness: 10, honesty: -15 }, tone: "neutral" }
+            ]
+        },
+        {
+            category: "mixed",
+            text: "You promised to help a friend, but got invited to a party.",
+            visual: "🎉",
+            choices: [
+                { text: "Keep your promise", outcome: "Being reliable is a sign of great character.", traits: { kindness: 15, focus: 15 }, tone: "positive" },
+                { text: "Ask to reschedule", outcome: "Good communication helps solve conflicts.", traits: { honesty: 10, kindness: 5 }, tone: "positive" },
+                { text: "Go to the party", outcome: "Your friend felt unimportant and let down.", traits: { kindness: -15, focus: -10 }, tone: "negative" }
+            ]
+        }
+    ];
+
+    // --- GAME STATE ---
+    let currentScenarioIndex = 0;
+    let pool = [];
+    let traits = {
+        honesty: 50,
+        kindness: 50,
+        courage: 50,
+        focus: 50
+    };
+    let expertUnlocked = false;
+
+    // --- AUDIO SYSTEM ---
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    function playTone(type) {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        if (type === 'positive') {
+            // Rising melody: C5 -> E5 -> G5
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(523.25, now); // C5
+            osc.frequency.setValueAtTime(659.25, now + 0.1); // E5
+            osc.frequency.setValueAtTime(783.99, now + 0.2); // G5
+            gain.gain.setValueAtTime(0.1, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+            osc.start(now);
+            osc.stop(now + 0.4);
+        } else if (type === 'negative') {
+            // Falling tone: G4 -> Eb4
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(392.00, now); // G4
+            osc.frequency.exponentialRampToValueAtTime(311.13, now + 0.3); // Eb4
+            gain.gain.setValueAtTime(0.1, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+            osc.start(now);
+            osc.stop(now + 0.4);
+        } else {
+            // Flat neutral tone: A4
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(440.00, now);
+            gain.gain.setValueAtTime(0.05, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+            osc.start(now);
+            osc.stop(now + 0.3);
+        }
+    }
+
+    // --- UI LOGIC ---
+    function showScreen(id) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+    }
+
+    function updateTraitUI() {
+        for (let t in traits) {
+            const val = Math.max(0, Math.min(100, traits[t]));
+            document.getElementById(`val-${t}`).innerText = val;
+            const bar = document.getElementById(`bar-${t}`);
+            if (bar) bar.style.width = val + '%';
+            const finalVal = document.getElementById(`final-${t}`);
+            if (finalVal) finalVal.innerText = val;
+        }
+    }
+
+    function startGame() {
+        pool = [...scenarios];
+        // Shuffle pool
+        pool.sort(() => Math.random() - 0.5);
+        currentScenarioIndex = 0;
+        traits = { honesty: 50, kindness: 50, courage: 50, focus: 50 };
+        expertUnlocked = false;
+
+        updateTraitUI();
+        loadScenario();
+        showScreen('scenario-screen');
+        playTone('neutral');
+    }
+
+    function loadScenario() {
+        const scenario = pool[currentScenarioIndex];
+        document.getElementById('level-indicator').innerText = `Scenario ${currentScenarioIndex + 1}/${pool.length}`;
+        document.getElementById('visual-icon').innerText = scenario.visual;
+        document.getElementById('scenario-text').innerText = scenario.text;
+
+        const container = document.getElementById('choices-container');
+        container.innerHTML = '';
+
+        scenario.choices.forEach((choice, idx) => {
+            const btn = document.createElement('div');
+            btn.className = 'choice-card';
+            btn.innerHTML = `<span>${['A', 'B', 'C'][idx]}.</span> ${choice.text}`;
+            btn.onclick = () => makeChoice(choice);
+            container.appendChild(btn);
+        });
+    }
+
+    function makeChoice(choice) {
+        // Update traits
+        let changes = [];
+        for (let t in choice.traits) {
+            traits[t] += choice.traits[t];
+            const sign = choice.traits[t] > 0 ? '+' : '';
+            changes.push(`${sign}${choice.traits[t]} ${t.charAt(0).toUpperCase() + t.slice(1)}`);
+        }
+
+        // Audio
+        playTone(choice.tone);
+
+        // Result Screen
+        document.getElementById('outcome-text').innerText = choice.outcome;
+        document.getElementById('trait-change').innerText = changes.join(', ');
+        document.getElementById('result-emoji').innerText = choice.tone === 'positive' ? '🌟' : (choice.tone === 'negative' ? '💨' : '✨');
+
+        updateTraitUI();
+        showScreen('result-screen');
+    }
+
+    function nextScenario() {
+        currentScenarioIndex++;
+
+        // Check for Expert Unlock (Adaptive Difficulty)
+        if (!expertUnlocked && currentScenarioIndex >= 5) {
+            if (traits.honesty > 70 || traits.kindness > 70) {
+                // Add expert scenarios to the end of the pool
+                pool.push(...expertScenarios);
+                expertUnlocked = true;
+                console.log("Expert scenarios unlocked!");
+            }
+        }
+
+        if (currentScenarioIndex < pool.length) {
+            loadScenario();
+            showScreen('scenario-screen');
+        } else {
+            showSummary();
+        }
+    }
+
+    function showSummary() {
+        // Determine Title
+        let maxTrait = 'honesty';
+        for (let t in traits) {
+            if (traits[t] > traits[maxTrait]) maxTrait = t;
+        }
+
+        let title = "Balanced Leader";
+        let icon = "👑";
+
+        if (traits.honesty > 80 && traits.kindness > 80) {
+            title = "Heart of Gold"; icon = "💛";
+        } else if (traits.honesty > 85) {
+            title = "The Honest Hero"; icon = "😇";
+        } else if (traits.kindness > 85) {
+            title = "The Kind Friend"; icon = "🤝";
+        } else if (traits.courage > 85) {
+            title = "The Brave Thinker"; icon = "🦁";
+        } else if (traits.focus > 85) {
+            title = "Master of Focus"; icon = "🎯";
+        } else if (traits.honesty < 40 && traits.kindness < 40) {
+            title = "Learning Leader"; icon = "🌱";
+        }
+
+        document.getElementById('personality-title').innerText = title;
+        document.getElementById('personality-icon').innerText = icon;
+
+        updateTraitUI();
+        showScreen('summary-screen');
+    }
+
+    // Init
+    window.addEventListener('touchstart', () => {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+    }, { once: true });
+</script>
+
+</body>
+</html>
