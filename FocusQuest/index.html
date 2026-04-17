@@ -165,6 +165,7 @@
     <canvas id="gameCanvas"></canvas>
 
     <div id="ui-layer">
+        <a href="../" style="position: absolute; top: 20px; left: 20px; color: rgba(255,255,255,0.5); text-decoration: none; font-size: 0.9rem; pointer-events: auto; z-index: 100;">← Portal</a>
         <div class="hud-top">
             <div class="focus-meter-container">
                 <div id="focus-bar"></div>
@@ -707,10 +708,8 @@
         if (gameState !== 'PLAYING' || player.targetNode) return;
 
         const rect = canvas.getBoundingClientRect();
-        const clientX = e.clientX ?? (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
-        const clientY = e.clientY ?? (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
-        const touchX = clientX - rect.left;
-        const touchY = clientY - rect.top;
+        const touchX = (e.clientX || e.touches[0].clientX) - rect.left;
+        const touchY = (e.clientY || e.touches[0].clientY) - rect.top;
 
         // Find nearest linked node
         let bestNode = null;
