@@ -195,11 +195,21 @@
             display: flex;
             align-items: center;
             gap: 10px;
+            width: 100%;
+            text-align: left;
+            font-family: inherit;
+            font-size: 1rem;
+            color: inherit;
         }
 
         .choice-card:hover {
             border-color: var(--primary-color);
             background: #f8faff;
+        }
+
+        .choice-card:focus-visible {
+            outline: 3px solid var(--primary-color);
+            outline-offset: 2px;
         }
 
         .choice-card:active {
@@ -645,7 +655,7 @@
         container.innerHTML = '';
 
         scenario.choices.forEach((choice, idx) => {
-            const btn = document.createElement('div');
+            const btn = document.createElement('button');
             btn.className = 'choice-card';
             btn.innerHTML = `<span>${['A', 'B', 'C'][idx]}.</span> ${choice.text}`;
             btn.onclick = () => makeChoice(choice);
